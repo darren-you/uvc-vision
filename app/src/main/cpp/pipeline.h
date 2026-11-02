@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "Utils.h"                     // NOLINT
+#include "utils.h"                     // NOLINT
 #include "paddle_api.h"                // NOLINT
 #include <memory>                      // NOLINT
 #include <opencv2/core.hpp>            // NOLINT

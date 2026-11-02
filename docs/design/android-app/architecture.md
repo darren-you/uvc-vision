@@ -41,7 +41,7 @@ Paddle 使用 `paddle/model.nb`、`paddle/doctor_label_list.txt` 和 `initDefaul
 旧 `app/OpenCV/` 与 `app/PaddleLite/` 目录已经删除。OpenCV 5.0.0.1 使用官方 Prefab `OpenCV::opencv_java5`，Paddle Lite 的制品 URL 与 SHA-256 固定在本仓 [prepare_paddle_lite.py](../../../tool/prepare_paddle_lite.py)，Gradle 只把真实消费的头文件与 bundled 静态库准备到被忽略的构建目录。C++ 使用 NDK 30 / CMake 4.1.2 / C++17。Paddle 使用同版官方 with_extra 包的 `libpaddle_api_light_bundled.a`，包含原模型的 hard_swish 扩展算子，并以 whole-archive 保留注册，Paddle 与 NDK 30 静态 OpenMP 的运行代码直接进入本仓 JNI；不打包有动态符号元数据错误的官方 shared 库。共享 STL 归属本项目 NDK 30，构建后检查实际打包库。UVC 单一依赖为正式 Maven UVCAndroid 1.0.13，旧四库已由 JPEG212 / libusb1.0 / uvc / yuv / UVCCamera 五库替代。最终 Native 制品通过 16 KiB ELF、RELRO 保护隔离与 ZIP 门禁；应用显式关闭页大小兼容模式，真实运行仍须按开发说明在 16 KiB Android 回归。
 
 - [PaddleDetector.java](../../../app/src/main/java/com/silicicsoft/doctorcam/paddle/PaddleDetector.java)以非零上下文表示初始化成功；初始化、推理和释放同步访问。释放前清零 Java 上下文，重复释放不再次删除 Native 指针；重新初始化先释放旧上下文。
-- [PaddleDetector.cc](../../../app/src/main/cpp/PaddleDetector.cc)按 Bitmap 实际 stride 读取像素，在锁内复制为 OpenCV 所有的图像后解锁预测。只接受 ARGB8888；Native 失败明确报告，不能冒充零检测结果。
+- [paddle_detector.cc](../../../app/src/main/cpp/paddle_detector.cc)按 Bitmap 实际 stride 读取像素，在锁内复制为 OpenCV 所有的图像后解锁预测。只接受 ARGB8888；Native 失败明确报告，不能冒充零检测结果。
 - [ImageProcessingUtils](../../../app/src/main/java/com/silicicsoft/doctorcam/utils/ImageProcessingUtils.java)复用同一个 NV21 → RGBA → Bitmap 转换入口；借用 Buffer 的读取不改变调用方 position / limit，数据不足或尺寸不合法返回失败。
 - C++ Pipeline 按 Android Bitmap 的 RGBA 顺序转为模型 RGB 输入；JNI 标签索引来自当前模型，不使用跨上下文静态标签映射。
 

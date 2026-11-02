@@ -22,7 +22,7 @@ set_target_properties(paddle_lite PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${PADDLE_LITE_SDK_DIR}/include"
 )
 
-add_library(PaddleDetector SHARED PaddleDetector.cc Pipeline.cc Utils.cc)
+add_library(PaddleDetector SHARED paddle_detector.cc pipeline.cc utils.cc)
 target_compile_options(PaddleDetector PRIVATE
     -ffast-math -Ofast -Os -DNDEBUG -fno-exceptions -fomit-frame-pointer
     -fno-asynchronous-unwind-tables -fno-unwind-tables -fvisibility=hidden

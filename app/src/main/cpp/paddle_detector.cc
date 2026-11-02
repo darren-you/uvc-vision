@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "PaddleDetector.h"
-#include "Pipeline.h"
+#include "paddle_detector.h"
+#include "pipeline.h"
 #include <android/bitmap.h>
 #include <unordered_map>
 
