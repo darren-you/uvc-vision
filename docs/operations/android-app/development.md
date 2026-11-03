@@ -136,7 +136,7 @@ bash tool/test_check_release_debug.sh
 
 历史源码和旧本地 Release 输出元数据只证明曾使用 `versionCode=1`、`versionName=1.0`，不能证明正式渠道发行或既有签名身份。首次正式发布保留已知编号 `1` 的高水位，按统一版本合同离线初始化 Core 的 Android 安装身份，再由实际活动 build stage 分配编号。当前声明基线为 `1.0.0`，正式编号以 Core 本次冻结版本快照及最终 APK 回读为准，不在文档或源码预填下一编号，也不建立产品私有编号算法。
 
-签名材料的唯一事实源为 `secret-data/profiles/uvc-vision/android-app/shared.prod.env`。配置通过仓内固定 Core 的 Profile loader 读取本次冻结快照，消费以下四个字段，不允许外部文件覆盖：
+签名材料的唯一事实源为 `developer-profile/profiles/android/uvc-vision/signing.prod.env`。配置通过仓内固定 Core 的 Profile loader 读取本次冻结快照，消费以下四个字段，不允许外部文件覆盖：
 
 - `UVC_VISION_ANDROID_SIGNING_KEYSTORE_BASE64`
 - `UVC_VISION_ANDROID_SIGNING_PASSWORD`
