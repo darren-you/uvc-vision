@@ -9,3 +9,5 @@ android:
   # 签名材料按字段名原样交给 Gradle（tool/prepare_release_signing.py 读取）；产物的实际签名须是登记的证书。
   signing_profile: android/uvc-vision/signing.prod.env
   certificate_field: UVC_VISION_ANDROID_SIGNING_CERT_SHA256
+  # 当前出口 IP 被 Maven Central 按滥用封禁（返回 403），依赖与插件优先从阿里云镜像获取。
+  maven_mirror: https://maven.aliyun.com/repository/public
