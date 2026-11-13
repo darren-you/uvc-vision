@@ -93,39 +93,15 @@ val verifyDebugNativeAlignment = tasks.register<Exec>("verifyDebugNativeAlignmen
     outputs.file(debugNativeAlignmentReport)
 }
 
-val clientVersionTool = rootProject.file("fast-deploy/core/shared/client_version.py")
+// 版本取 release.json；正式构建时 Fast Deploy 用环境变量给出本次的版本与构建号。
+val releaseVersion = (groovy.json.JsonSlurper().parse(rootProject.file("release.json")) as Map<*, *>)["version"] as String
 val clientRunId = providers.environmentVariable("FAST_DEPLOY_RUN_ID").orElse("").get()
-val clientSnapshotPath = providers.environmentVariable("FAST_DEPLOY_CLIENT_VERSION_SNAPSHOT_FILE").orNull
-val clientVersionPending = clientRunId.isNotEmpty() && clientSnapshotPath == null
-val clientVersionInput: Map<*, *> = if (clientVersionPending) {
-    val version = providers.exec {
-        commandLine("python3", clientVersionTool, "read", "--project-root", rootProject.projectDir)
-    }.standardOutput.asText.get().trim()
-    mapOf("version" to version)
-} else {
-    val arguments = mutableListOf<Any>(
-        "python3", clientVersionTool, "resolve-build-input", "--platform", "android",
-        "--project-root", rootProject.projectDir,
-    )
-    clientSnapshotPath?.let { arguments.addAll(listOf("--snapshot-file", it)) }
-    val result = providers.exec { commandLine(arguments) }.standardOutput.asText.get()
-    groovy.json.JsonSlurper().parseText(result) as Map<*, *>
-}
-val clientVersion = clientVersionInput["version"] as String
-// 正式编号未分配时只允许前置检查与准备任务，不能产包。
-val clientVersionCode = (clientVersionInput["version_code"] as? Number)?.toInt() ?: 1
+val clientVersion = providers.environmentVariable("FAST_DEPLOY_VERSION").orElse(releaseVersion).get()
+val clientBuildNumber = providers.environmentVariable("FAST_DEPLOY_BUILD_NUMBER").orNull
+require(clientRunId.isEmpty() || clientBuildNumber != null) { "正式 Android 构建必须由 Fast Deploy 给出构建号" }
+// 本地构建使用 1，不消耗正式编号。
+val clientVersionCode = clientBuildNumber?.toInt() ?: 1
 val clientLocalValidation = clientRunId.isEmpty()
-if (clientVersionPending) {
-    gradle.taskGraph.whenReady {
-        require(allTasks.all {
-            it.name.startsWith("prepare") && it.name.endsWith("ClientVersion") ||
-                it.name == "verifyReleaseDebugDisabled" || it.name == "dependencies" ||
-                it.name == "prepareReleaseSigning"
-        }) {
-            "正式 Android 构建必须先分配 Core 版本快照"
-        }
-    }
-}
 
 android {
     namespace = "com.silicicsoft.doctorcam"
@@ -284,39 +260,9 @@ dependencies {
 androidComponents {
     onVariants(selector().all()) { variant ->
         val name = variant.name.replaceFirstChar { it.uppercaseChar() }
-        val clientVersionMatches = clientLocalValidation || (!clientVersionPending && run {
-            val buildInputs = clientVersionInput["build_inputs"] as Map<*, *>
-            clientVersionInput["application_id"] == variant.applicationId.get() &&
-                buildInputs["variant"] == variant.name &&
-                buildInputs["architectures"] == android.defaultConfig.ndk.abiFilters.sorted()
-        })
         if (variant.buildType == "release") {
-            val output = providers.environmentVariable("FAST_DEPLOY_CLIENT_VERSION_PREPARATION_FILE").orNull
-            val arguments = mutableListOf<Any>(
-                "python3", clientVersionTool, "prepare-build-input", "--project-root", rootProject.projectDir,
-                "--platform", "android", "--application-id", variant.applicationId.get(),
-                "--variant", variant.name, "--output", output.orEmpty(),
-            )
-            android.defaultConfig.ndk.abiFilters.sorted().forEach {
-                arguments.addAll(listOf("--architecture", it))
-            }
-            tasks.register<Exec>("prepare${name}ClientVersion") {
-                group = "verification"
+            tasks.matching { it.name == "pre${name}Build" }.configureEach {
                 dependsOn(verifyReleaseDebugDisabled, prepareReleaseSigning)
-                commandLine(arguments)
-                doFirst {
-                    require(!output.isNullOrEmpty()) {
-                        "版本准备必须提供 FAST_DEPLOY_CLIENT_VERSION_PREPARATION_FILE"
-                    }
-                }
-            }
-        }
-        tasks.matching { it.name == "pre${name}Build" }.configureEach {
-            if (variant.buildType == "release") dependsOn(verifyReleaseDebugDisabled, prepareReleaseSigning)
-            doFirst {
-                require(clientVersionMatches) {
-                    "Android 实际 variant、applicationId 或 ABI 与编号快照不一致"
-                }
             }
         }
     }

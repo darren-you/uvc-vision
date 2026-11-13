@@ -1,0 +1,11 @@
+# Fast Deploy 发布配置：UVC Vision Android 正式 APK（official 渠道，留存在制品库）。
+kind: android
+project: uvc-vision-android-app
+
+android:
+  module: app
+  application_id: com.silicicsoft.doctorcam
+  java_home: /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+  # 签名材料按字段名原样交给 Gradle（tool/prepare_release_signing.py 读取）；产物的实际签名须是登记的证书。
+  signing_profile: android/uvc-vision/signing.prod.env
+  certificate_field: UVC_VISION_ANDROID_SIGNING_CERT_SHA256
