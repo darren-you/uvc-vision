@@ -16,7 +16,7 @@
 | Paddle Lite | 官方最新 v2.14-rc with_extra；固定制品 URL 与整包 SHA-256，构建时仅准备头文件和 bundled 静态库 |
 | UVC / ONNX Runtime | com.herohan:UVCAndroid:1.0.13 / onnxruntime-android:1.31.0 |
 | 安装身份 | `com.silicicsoft.doctorcam`，Debug 不追加身份后缀 |
-| 本地版本 | 工程根 `release.json`：1.0.0；Core 本地验证编号 1 |
+| 本地版本 | 工程根 `release.json`：1.0.0；本地验证编号 1 |
 | 发布装配 | 仓内固定 `fast-deploy` 默认 Android 流水线；Job 为 `uvc-vision-android-app`，生产 `official / apk`，由 `mac-ci-1` 构建 |
 
 事实源为 [Wrapper](../../../gradle/wrapper/gradle-wrapper.properties)、[版本目录](../../../gradle/libs.versions.toml)、[应用 Gradle](../../../app/build.gradle.kts)、[Paddle 准备脚本](../../../tool/prepare_paddle_lite.py)、[CMake](../../../app/src/main/cpp/CMakeLists.txt)和 [release.json](../../../release.json)。[官方 AGP 兼容表](https://developer.android.com/build/releases/about-agp)要求 AGP 9.4 使用 Gradle 9.6 及以上；本仓固定正式最新版 9.8.1，不使用动态版本。
@@ -66,7 +66,7 @@ git submodule update --init fast-deploy
 - `app/build/outputs/apk/debug/app-debug.apk`
 - `app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk`
 
-首次解析依赖需要 Google Maven、Maven Central、Gradle 插件仓库及 Paddle 官方 GitHub Release；`--offline` 只在所需依赖已完整缓存时使用。命令关闭 SDK 自动下载，让缺失组件明确失败。仓内 Core 子模块必须先物化，否则版本输入不能解析。
+首次解析依赖需要 Google Maven、Maven Central、Gradle 插件仓库及 Paddle 官方 GitHub Release；`--offline` 只在所需依赖已完整缓存时使用。命令关闭 SDK 自动下载，让缺失组件明确失败。
 
 AGP 生成 variant 对应的 `BuildConfig`；Compose 页面不再使用 ViewBinding 或 XML 导航。OpenCV 由 `implementation(libs.opencv)` 提供同版本 Java / Native，CMake 通过 Prefab 的 `OpenCV::opencv_java5` 链接共享库。`preparePaddleLiteSdk` 在构建前校验官方压缩包 SHA-256，只准备两个头文件与 ARM64 bundled 静态库到 `app/build/native-sdk/paddle-lite/`；该目录与其他构建产物一样不提交 Git，干净 checkout 可独立重建。共享 C++ 运行库只打包本项目使用的 NDK 30 版本；项目 Native 合并顺序与精确重复项规则共同确定归属，产包后仍须核对实际库的 SHA-256。
 
@@ -117,9 +117,9 @@ Debug 共 10 条 instrumentation 用例，Release 共 8 条；其中 7 条 Nativ
 
 ## 版本与 Release 门禁
 
-[release.json](../../../release.json)声明与冻结数字版本分支一致的产品版本 `1.0.0`。同一版本分支的新构建保持版本不变，由 Core 持久递增 `build_number`，不自动增加 patch。Gradle 消费仓内固定 Core 的 `shared/client_version.py`，本地构建使用验证编号 `1` 并写入 `client_local_validation=true` 与空 `client_run_id`；构建不修改版本文件或提交 Git。
+[release.json](../../../release.json)声明与冻结数字版本分支一致的产品版本 `1.0.0`。同一版本分支的新构建保持版本不变，由 Fast Deploy 持久递增 `build_number`，不自动增加 patch。Gradle 读取 `release.json`，正式构建消费 `FAST_DEPLOY_VERSION`／`FAST_DEPLOY_BUILD_NUMBER`，本地构建使用验证编号 `1` 并写入 `client_local_validation=true` 与空 `client_run_id`；构建不修改版本文件或提交 Git。
 
-正式构建必须读取 Core 分配的冻结版本快照，并校验真实 variant、安装身份、ABI 和版本。缺少快照时只允许前置检查与准备，禁止产包。`prepareReleaseClientVersion` 只生成准备事实，不分配正式编号或建立正式发布任务。
+正式构建（存在 `FAST_DEPLOY_RUN_ID`）必须拿到 Fast Deploy 分配的构建号，缺少时 Gradle 直接失败，不产包。
 
 [UvcVisionApp.kt](../../../app/src/main/java/com/silicicsoft/doctorcam/UvcVisionApp.kt)中唯一的 `_debug` 字面量控制调试入口：开发模式使用 `true`，正式发布源码使用 `false`。所有 Release variant 在编译前调用同一 `verifyReleaseDebugDisabled`；编号准备也依赖该门禁。缺失、重复、非字面量或值为 `true` 时明确失败，须由维护者显式改为唯一 `false`。
 
@@ -132,11 +132,11 @@ bash tool/test_check_release_debug.sh
 
 ## 正式发布
 
-[deploy_config.sh](../../../deploy_config.sh)是本仓正式配置入口。Fast Deploy Job `uvc-vision-android-app` 只接受 `prod`，默认制品为 `official / apk`，实际 variant 为 `release`、架构为 `arm64-v8a`，安装身份为 `com.silicicsoft.doctorcam`。Job 采用 `exclusive / isolated / store`，在 `mac-ci-1` 构建，不修改 Git，也没有部署设备维度；固定 Core 的默认 Android 流水线负责准备、编号、构建、登记与校验。
+[deploy.yaml](../../../deploy.yaml)是本仓正式配置入口。Fast Deploy Job `uvc-vision-android-app` 只接受 `prod`，制品为 release APK（`arm64-v8a`），安装身份为 `com.silicicsoft.doctorcam`。Job 在 `mac-ci-1` 的 native 档构建，不修改 Git，也没有部署设备维度；Fast Deploy 的 Android 流水线负责编号、构建、签名回读与留存。
 
-历史源码和旧本地 Release 输出元数据只证明曾使用 `versionCode=1`、`versionName=1.0`，不能证明正式渠道发行或既有签名身份。首次正式发布保留已知编号 `1` 的高水位，按统一版本合同离线初始化 Core 的 Android 安装身份，再由实际活动 build stage 分配编号。当前声明基线为 `1.0.0`，正式编号以 Core 本次冻结版本快照及最终 APK 回读为准，不在文档或源码预填下一编号，也不建立产品私有编号算法。
+历史源码和旧本地 Release 输出元数据只证明曾使用 `versionCode=1`、`versionName=1.0`，不能证明正式渠道发行或既有签名身份。首次正式发布保留已知编号 `1` 的高水位，在 mac-ci-1 用 `fast-deploy version init` 初始化 `android / com.silicicsoft.doctorcam`，再由 build 步骤分配编号。当前声明基线为 `1.0.0`，正式编号以 Fast Deploy 本次分配及最终 APK 回读为准，不在文档或源码预填下一编号，也不建立产品私有编号算法。
 
-签名材料的唯一事实源为 `developer-profile/profiles/android/uvc-vision/signing.prod.env`。配置通过仓内固定 Core 的 Profile loader 读取本次冻结快照，消费以下四个字段，不允许外部文件覆盖：
+签名材料的唯一事实源为 `developer-profile/profiles/android/uvc-vision/signing.prod.env`。Fast Deploy 从本次 Profile 快照读取该文件，字段原样作为环境变量交给 Gradle，消费以下四个字段，不允许外部文件覆盖：
 
 - `UVC_VISION_ANDROID_SIGNING_KEYSTORE_BASE64`
 - `UVC_VISION_ANDROID_SIGNING_PASSWORD`
@@ -145,13 +145,12 @@ bash tool/test_check_release_debug.sh
 
 PKCS12 alias 保留既有签名身份 `doctor-cam`；首次正式证书的公开 SHA-256 为 `0c8472fdcf61d45a66500368da43f2c254eca5dc4bd5be4ca0334b170376fbdc`。[签名准备脚本](../../../tool/prepare_release_signing.py)在构建目录以受限文件权限物化 PKCS12，通过 `keytool` 从实际证书字节核对摘要；密码经环境变量传入，不打印签名秘密，构建产物不提交 Git。
 
-Release 编号准备与编译都依赖同一 Debug 静态门禁及签名准备。`assembleRelease` 必须等待 [最终 APK 检查](../../../tool/check_release_apk.py)与 [Native 对齐检查](../../../tool/check_native_alignment.py)通过：只有一个正式签名者、证书匹配冻结 Profile、`debuggable=false`、`testOnly=false`，全部 Native 库满足 16 KiB 合同。Core 另从最终 Manifest 核对 `versionName`、Core 分配的整数 `versionCode`、安装身份、`client_local_validation=false` 与当前 `client_run_id`，再冻结制品摘要。
+Release 编号准备与编译都依赖同一 Debug 静态门禁及签名准备。`assembleRelease` 必须等待 [最终 APK 检查](../../../tool/check_release_apk.py)与 [Native 对齐检查](../../../tool/check_native_alignment.py)通过：只有一个正式签名者、证书匹配冻结 Profile、`debuggable=false`、`testOnly=false`，全部 Native 库满足 16 KiB 合同。Fast Deploy 另用 `aapt2` 从最终 APK 核对包名、`versionName` 与分配的整数 `versionCode`，用 `apksigner` 核对实际签名证书与签名材料登记的一致，再留存制品。
 
-发布前须将已保存的 Job 清单和固定 Core 传播到真实在线 Panel 消费者，并回读 Job；配置文件存在或本地清单校验不能证明在线任务可用。通过 Panel 触发该 Job，或在已准备控制面连接的环境使用既有入口：
+通过 Panel 触发该 Job，或在工作区根执行：
 
 ```bash
-bash fast-deploy/core/deploy-control/trigger_build.sh \
-  --job uvc-vision-android-app --build-env prod
+bash harness/scripts/workspace/fast-deploy.sh trigger --job uvc-vision-android-app --wait
 ```
 
 正式 APK 构建完成后，使用同一冻结版本与签名配置生成 Release instrumentation，显式选择 Release 测试 variant：

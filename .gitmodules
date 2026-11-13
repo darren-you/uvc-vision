@@ -1,4 +1,0 @@
-[submodule "fast-deploy"]
-	path = fast-deploy
-	url = git@github.com:darren-you/fast-deploy.git
-	branch = 1.0.0

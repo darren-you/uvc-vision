@@ -37,7 +37,7 @@ entrypoints:
   - settings.gradle.kts
   - app/build.gradle.kts
   - release.json
-  - deploy_config.sh
+  - deploy.yaml
   - docs/README.md
   - docs/design/android-app/architecture.md
   - docs/operations/android-app/development.md
